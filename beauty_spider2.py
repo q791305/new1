@@ -1,80 +1,125 @@
-# -*- coding: utf-8 -*-
-
-
-import re
-import urllib2
+import datetime
 import sys
+import time
+
+import requests
+from bs4 import BeautifulSoup
+from requests.packages.urllib3.exceptions import InsecureRequestWarning
+
 import download_beauty
 
-
-comment_regex = re.compile(u'class="nrec"><span class="hl (f\d)">(\w+)?')
-url_regex = re.compile(r'<a href="([^"]+)">')
-
-
-def reformalize(level):
-    if level is None:
-        return 100
-    elif level[0] == 'X':
-        return -10 * int(level[1])
+requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+rs = requests.session()
 
 
-def getFirstPage():
-    content = urllib2.urlopen('https://www.ptt.cc/bbs/Beauty/index.html').read()
-    first_page = re.search(r'href="/bbs/Beauty/index(\d+).html">&lsaquo;', content).group(1)
-    return int(first_page)
+def get_page_number(content):
+    start_index = content.find('index')
+    end_index = content.find('.html')
+    page_number = content[start_index + 5: end_index]
+    return int(page_number) + 1
 
 
-def crawPage(url, article_list, push_rate):
-    try:
-        source = urllib2.urlopen(url)
-        content = source.read()
-    except urllib2.URLError as urlerr:
-        print "URLError detected: " + url
-        return
-
-    rent_lst = content.split('<div class="r-ent">')
-
-    for each_data in rent_lst:
-        comment_rate = comment_regex.search(each_data)
-
-        if comment_rate:
-            try:
-                rate = int(comment_rate.group(2))
-            except Exception as err:
-                rate = reformalize(comment_rate.group(2))
-            if rate >= push_rate:
-                # parse each url
-                # get into new page, parse photo
-                try:
-                    url = 'https://www.ptt.cc/' + url_regex.search(each_data).group(1)
-                    article_list.append((rate, url))
-                    # print rate, url
-                except Exception as err:
-                    # print err
-                    pass
+def over18(board):
+    res = rs.get('https://www.ptt.cc/bbs/{}/index.html'.format(board), verify=False)
+    # 先檢查網址是否包含'over18'字串 ,如有則為18禁網站
+    if 'over18' in res.url:
+        print("18禁網頁")
+        load = {
+            'from': '/bbs/{}/index.html'.format(board),
+            'yes': 'yes'
+        }
+        res = rs.post('https://www.ptt.cc/ask/over18', verify=False, data=load)
+    return BeautifulSoup(res.text, 'html.parser')
 
 
-if __name__ == '__main__':
+def craw_page(res, push_rate):
+    soup_ = BeautifulSoup(res.text, 'html.parser')
+    article_seq = []
+    for r_ent in soup_.find_all(class_="r-ent"):
+        try:
+            # 先得到每篇文章的篇url
+            link = r_ent.find('a')['href']
+            if link:
+                # 確定得到url再去抓 標題 以及 推文數
+                title = r_ent.find(class_="title").text.strip()
+                rate_text = r_ent.find(class_="nrec").text
+                url = 'https://www.ptt.cc' + link
+                if rate_text:
+                    if rate_text.startswith('爆'):
+                        rate = 100
+                    elif rate_text.startswith('X'):
+                        rate = -1 * int(rate_text[1])
+                    else:
+                        rate = rate_text
+                else:
+                    rate = 0
+                # 比對推文數
+                if int(rate) >= push_rate:
+                    article_seq.append({
+                        'title': title,
+                        'url': url,
+                        'rate': rate,
+                    })
+        except Exception as e:
+            print('本文已被刪除', e)
+    return article_seq
 
-    start_page, page_term, push_rate = int(sys.argv[1]), int(sys.argv[2]), int(sys.argv[3])
-    if start_page < 0:
-        start_page = getFirstPage()
-    # print start_page, page_term, push_rate
 
-    print "解析下載網頁面，統計數量中..."
+def main():
+    # python beauty_spider2.py [版名] [爬蟲起始的頁面] [爬幾頁] [推文多少以上] python beauty_spider2.py beauty -1 3 10
+    # board, start_page, page_term, push_rate = sys.argv[1], int(sys.argv[2]), int(sys.argv[3]), int(sys.argv[4])
+    board, start_page, page_term, push_rate = 'beauty', -1, 3, 10
+    start_time = time.time()
+    datetime_format = '%Y%m%d%H%M%S'
+    crawler_time = '_PttImg_{:{}}'.format(datetime.datetime.now(), datetime_format)
+    if start_page == 0:
+        print("請輸入有效數字")
+        sys.exit()
+    # 如為 -1 ,則從最新的一頁開始
+    else:
+        # 檢查看板是否為18禁,有些看板為18禁
+        soup = over18(board)
+        all_page_url = soup.select('.btn.wide')[1]['href']
+        start_page = get_page_number(all_page_url)
 
+    print("Analytical download page...")
+    index_list = []
     article_list = []
     for page in range(start_page, start_page - page_term, -1):
-        page_url = 'https://www.ptt.cc/bbs/Beauty/index' + str(page) + '.html'
-        crawPage(page_url, article_list, push_rate)
+        page_url = 'https://www.ptt.cc/bbs/{}/index{}.html'.format(board, page)
+        index_list.append(page_url)
 
-    print "即將開始下載圖片, 請再等一下下 ^_^"
+    # 抓取 文章標題 網址 推文數
+    while index_list:
+        index = index_list.pop(0)
+        res = rs.get(index, verify=False)
+        # 如網頁忙線中,則先將網頁加入 index_list 並休息1秒後再連接
+        if res.status_code != 200:
+            index_list.append(index)
+            time.sleep(1)
+        else:
+            article_list += craw_page(res, push_rate)
+        time.sleep(0.05)
 
     total = len(article_list)
     count = 0
-    for hot_rate, article in article_list:
-        download_beauty.store_pic(article, str(hot_rate))
-        count += 1
-        print "已經下載: " + str(100 * count / total ) + " %."
+    # 進入每篇文章分析內容
+    while article_list:
+        article = article_list.pop(0)
+        res = rs.get(article['url'], verify=False)
+        # 如網頁忙線中,則先將網頁加入 index_list 並休息1秒後再連接
+        if res.status_code != 200:
+            article_list.append(article)
+            time.sleep(1)
+        else:
+            count += 1
+            download_beauty.store_pic(crawler_time, article['url'], article['rate'], article['title'])
+            print('download: {:.2%}'.format(count / total))
+        time.sleep(0.05)
 
-    print "即將下載完畢，滿滿的正妹圖就要入袋拉！"
+    print("下載完畢...")
+    print('execution time: {:.3}s'.format(time.time() - start_time))
+
+
+if __name__ == '__main__':
+    main()

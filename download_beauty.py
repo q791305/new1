@@ -1,109 +1,139 @@
-# -*- coding: utf-8 -*-
-
-# 使用方法
-# 請將要下載的PTT 表特版文章網址放到 input.txt 中
-# 在終端機中輸入：python download_beauty.py input.txt
-# 下載的圖片會以該表特文章標題作為資料夾名稱
-#
-# 尚未測試完畢項目：
-# 1. multiprocessing, threading
-# 2. 圖片儲存緩衝
-
-
-import urllib
-import urllib2
-import re
 import os
 import sys
+import requests
+from requests.packages.urllib3.exceptions import InsecureRequestWarning
+import shutil
 import multiprocessing
+import time
+import datetime
+from bs4 import BeautifulSoup
+from functools import partial
 
-img_regex = re.compile(r'<img src="[^"]*(//[i|m].imgur.com/[^"]+jpg)" alt=')
+requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+rs = requests.session()
 
 
-def download_pic(pic_url, dir):
+def over18(url):
+    res = rs.get(url, verify=False)
+    # 先檢查網址是否包含'over18'字串 ,如有則為18禁網站
+    if 'over18' in res.url:
+        print("18禁網頁")
+        # 從網址獲得版名
+        board = url.split('/')[-2]
+        load = {
+            'from': '/bbs/{}/index.html'.format(board),
+            'yes': 'yes'
+        }
+        res = rs.post('https://www.ptt.cc/ask/over18', verify=False, data=load)
+    return BeautifulSoup(res.text, 'html.parser'), res.status_code
+
+
+# 移除特殊字元（移除Windows上無法作為資料夾的字元）
+def remove(value, deletechars):
+    for c in deletechars:
+        value = value.replace(c, '')
+    return value.rstrip()
+
+
+def image_url(link):
+    # 符合圖片格式的網址
+    image_seq = ['.jpg', '.png', '.gif', '.jpeg']
+    for seq in image_seq:
+        if link.endswith(seq):
+            return link
+    # 有些網址會沒有檔案格式， "https://imgur.com/xxx"
+    if 'imgur' in link:
+        return '{}.jpg'.format(link)
+    return ''
+
+
+def store_pic(crawler_time, url, rate='', title=''):
+    # 檢查看板是否為18禁,有些看板為18禁
+    soup, _ = over18(url)
+    crawler_time = url.split('/')[-2] + crawler_time
+    # 避免有些文章會被使用者自行刪除標題列
     try:
-        pic_name = dir + '/' + pic_url.split('/')[-1]
-        urllib.urlretrieve(pic_url, pic_name)
-    except IOError as ioerr:
-        print "IOError in download picture: " + pic_url
+        title = soup.select('.article-meta-value')[2].text
+    except Exception as e:
+        title = "no title"
 
+    dir_name = '{}_{}'.format(remove(title, '\/:*?"<>|.'), rate)
+    pic_url_list = []
 
-def get_pic_list(url_content):
-    # 縮小 regex parse 的範圍
-    # 爬的範圍不包含 推文
-    parse_start = url_content.find('img src=')
-    parse_end = url_content.find('<span class="f2">')
-    img_url_list = img_regex.findall(url_content[parse_start-1:parse_end])
+    # 抓取圖片URL(img tag )
+    for img in soup.find_all("a", rel='nofollow'):
+        img_url = image_url(img['href'])
+        if img_url:
+            pic_url_list.append(img_url)
 
-    # 將每一個 list 中的 element 都加上 'https' 但是不確定有沒有更適合的做法
-    img_url_list = ['https:' + img_url for img_url in img_url_list]
-    return img_url_list
-
-
-def get_title(content):
-    title_start = content.find(r'og:title" content')
-    title_end = content[title_start:].find(r'" />')
-    if title_start == -1:
-        return "Noname"
-    title = content[title_start+19:title_start+title_end]
-    title = title if '/' not in title else title.replace('/', '-')
-    return title
-
-
-def store_pic(url, rate=""):
-
-    # 在 content 方面沒有處理推文，而是全部讀入
-    # 如果要處理不包含推文的圖片可以 parse 到該篇文章 url 的地方
-    # 因為在推文的前一行有文章網址
-
-    try:
-        content = urllib2.urlopen(url).read()
-    except urllib2.HTTPError as httperr:
-        print "urllib2.HTTPError detected in store_pic():" + url
-        return
-    except urllib2.URLError as urlerr:
-        print "URLError detected in store_pic(): " + url
-        return
-
-    # Get title as dir name
-    article_title = get_title(content)
-    # 轉錄的文章不處理
-    if 'Fw:' in article_title: return
-    # 對於沒標題的文章不附加推文，因為可能不只一個
-    dir_name = article_title + rate if article_title is not 'Noname' else article_title
-    if not os.path.exists(dir_name):
+    # 開始建立資料夾,使用文章標題做為資料夾的名稱
+    if pic_url_list:
+        relative_path = os.path.join(crawler_time, dir_name)
+        path = os.path.abspath(relative_path)
         try:
-            os.mkdir(dir_name)
-        except OSError as err:
-            print err, url
+            if not os.path.exists(path):
+                os.makedirs(path)
+        except Exception as e:
+            print('os.makedirs(path) error')
 
-    # Download each picture from picture url. In other word, impur address.
-    pic_url_list = get_pic_list(content)
+        pool_size = multiprocessing.cpu_count() * 2
+        download = partial(download_link, relative_path)
+        pool = multiprocessing.Pool(processes=pool_size, )
+        pool.map(download, pic_url_list)
+        pool.close()
+        pool.join()
 
-    # 如何優化計數動作?
-    # 預計管理 Process 數目
-    # 增加p.join()
-    count = 0
-    for pic_url in pic_url_list:
-        count += 1
-        p = multiprocessing.Process(target=download_pic, args=(pic_url, dir_name,))
-        p.start()
-        # download_pic(pic_url, title)
 
-    if count == 0:
-        os.rmdir(dir_name)
+def download_link(directory, link):
+    res_img = rs.get(link, stream=True, verify=False)
+    # 使用網址的最後一個字串設為圖片檔案名稱
+    filename = link.split('/')[-1]
+    relative_path = os.path.join(directory, filename)
+    path = os.path.abspath(relative_path)
+    try:
+        if not os.path.exists(path):
+            with open(path, 'wb') as out_file:
+                shutil.copyfileobj(res_img.raw, out_file)
+            del res_img
+    except Exception as e:
+        print('shutil.copyfileobj error')
 
 
 def main():
+    print("Analytical download page...")
+    datetime_format = '%Y%m%d%H%M%S'
+    crawler_time = '_PttImg_{:{}}'.format(datetime.datetime.now(), datetime_format)
+    start_time = time.time()
     beauty_article_urls = []
-    # 從檔案中毒入 urls
+    # 從.txt檔案中讀取 urls
+    total = 0
     with open(sys.argv[1]) as fd:
         for url in fd:
-            beauty_article_urls.append(url)
+            if 'www.ptt.cc' in url.strip():
+                beauty_article_urls.append(url.strip())
+                total += 1
 
-    for article_url in beauty_article_urls:
-        # 下載該網頁的圖片
-        store_pic(article_url)
+    count = 0
+    while beauty_article_urls:
+        url = beauty_article_urls.pop(0)
+        # 檢查看板是否為18禁,有些看板為18禁
+        _, status_code = over18(url)
+        # 如網頁忙線中,則先將網頁加入 index_list 並休息1秒後再連接
+        if status_code != 200:
+            beauty_article_urls.append(url)
+            # print('error_URL:',URL)
+            time.sleep(1)
+        else:
+            # print('OK_URL:', URL)
+            # 下載該網頁的圖片
+            count += 1
+            store_pic(crawler_time, url)
+            print('Crawling: {:.2%}'.format(count / total))
+        time.sleep(0.05)
+
+    print('下載完畢...')
+    print('execution time: {:.3}s'.format(time.time() - start_time))
+
 
 if __name__ == '__main__':
     main()

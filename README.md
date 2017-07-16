@@ -1,34 +1,107 @@
-# PTT ±íÌØ°æÅÀÏxˆDÆ¬ÏÂİdÆ÷
-## Ç°ÑÔ
-ß@‚€ Program ÊÇ×ŒÎÒÓÃí¾šÁ•ÅÀÏxµÄ»ù±¾¸ÅÄî£¬´îÅä¶àˆÌĞĞ¾wµÄÊ¹ÓÃ <br>
-Ï£Íû´ó¼ÒÓĞ½¨×h»òÊÇÅúÔu¶¼¿ÉÒÔŒ‘ĞÅ½oÎÒ£¬Œ¦ÎÒíÕfß@ÊÇÓĞĞ§ÂÊµÄŒWÁ•™C•ş¡£
-µ«ÊÇ±Èİ^ƒAÏò×Ô¼º¸Ä code, ÖxÖx´ó¼ÒŒšÙFµÄÒâÒŠ! <br>
+# PTTåœ–ç‰‡ä¸‹è¼‰å™¨ (Python) For Windows and Linux
 
-## Ê¹ÓÃ·½·¨
-```
-$ python beauty_spider2.py ÅÀÏxÆğÊ¼µÄí“Ãæ ÅÀ×í“ ÍÆÎÄ¶àÉÙÒÔÉÏ 
-```
-Èç¹ûÒªÄ×îĞÂí“Ãæé_Ê¼ÅÀ µÚÒ»‚€…¢”µÕˆÌî -1 <br>
-Ä¿Ç°¸÷·N bug Ğ§ÄÜÎ´ƒ»¯¡£<br>
-ÅÀÏxÊÇÀûÓÃ PTT ¾Wí“°æ£¬ËùÒÔí“ÃæÒÔ¾Wí“°æé˜ËœÊ¡£<br>
-Õˆ…¢¿¼£º <br>
-```
-https://www.ptt.cc/bbs/Beauty/index.html
+A crawler picture for web PTT
+
+* [Demo Video NEW](https://youtu.be/iAkdZP_Tcyo)  - Windows - 2017/4/23 update
+* [Demo Video](https://www.youtube.com/watch?v=YIFTQnE2wuk)  - Linux
+* [Demo Video](https://www.youtube.com/watch?v=aA4EDhxNRYo)  - Windows
+
+## æ•™å­¸
+
+è«‹å…ˆç¢ºèªé›»è…¦æœ‰å®‰è£ [Python 3.4.3](https://www.python.org/)
+
+æ¥è‘—å®‰è£å¥—ä»¶
+
+è«‹å…ˆåˆ‡æ›åˆ°è©²ç›®éŒ„åº•ä¸‹ï¼Œæ¥è‘—åœ¨ä½ çš„å‘½ä»¤æç¤ºå­—å…ƒ (cmd ) åº•ä¸‹è¼¸å…¥
+
+>pip install -r requirements.txt
+
+åŸºæœ¬ä¸Šå®‰è£æ‡‰è©²æ²’ä»€éº¼å•é¡Œã€‚
+
+![alt tag](http://i.imgur.com/2VUMQ0R.jpg)
+
+## ç‰¹è‰²
+
+* æŠ“å–PTT åœ–æª”(åŒ…å«æ¨æ–‡)
+* å¯æŒ‡å®šè¦æŠ“å–çš„çœ‹æ¿ä»¥åŠæ¨æ–‡æ•¸å¤šå°‘ä»¥ä¸Š
+
+## è¼¸å‡ºæ ¼å¼
+
+* è³‡æ–™å¤¾ç‚ºæ–‡ç« æ¨™é¡ŒåŠ ä¸Šæ¨æ–‡æ•¸ï¼Œè³‡æ–™å¤¾å…§ç‚ºåœ–ç‰‡
+
+## ä½¿ç”¨æ–¹æ³•
+
+* æ–¹æ³•ä¸€(æŒ‡å®šçœ‹æ¿æŠ“åœ–)
+
+```cmd
+python beauty_spider2.py [æ¿å] [çˆ¬èŸ²èµ·å§‹çš„é é¢] [çˆ¬å¹¾é ] [æ¨æ–‡å¤šå°‘ä»¥ä¸Š]
 ```
 
-# ˆDÆ¬ÕfÃ÷
-## ÏÂİdÖĞ
-![alt tag](http://i.imgur.com/RoFrilx.jpg)<br>
-## ÏÂİdÍê³É
-![alt tag](http://i.imgur.com/tLwYbj2.png) <br>
-## ÙYÁÏŠAƒÈ²¿ î›r
-![alt tag](http://i.imgur.com/hu8MyIf.png) <br>
-## ˆÌĞĞ¹ Àı 
-Ê¹ÓÃ:
-``` 
-$ python beauty_spider2.py -1 100 100
-```
-![alt tag](http://i.imgur.com/xlkhW8B.png)
+* æ–¹æ³•äºŒ(æŒ‡å®šç¶²å€æŠ“åœ–)
 
-# License
+```cnd
+python download_beauty.py [è¼¸å…¥å…§å®¹.txt]
+```
+
+å¦‚æœè¦å¾æœ€æ–°é é¢é–‹å§‹çˆ¬ ç¬¬ä¸€å€‹åƒæ•¸è«‹å¡« -1
+
+çˆ¬èŸ²æ˜¯åˆ©ç”¨ PTT ç¶²é ç‰ˆï¼Œæ‰€ä»¥é é¢ä»¥ç¶²é ç‰ˆç‚ºæ¨™æº–ã€‚
+
+è«‹åƒè€ƒï¼š
+
+```url
+https://www.ptt.cc/bbs/AKB48/index.html
+```
+
+## åŸ·è¡Œç¯„ä¾‹
+
+* ç¯„ä¾‹ä¸€(æŒ‡å®šçœ‹æ¿æŠ“åœ–)
+
+```cmd
+python beauty_spider2.py beauty -1 3 10
+```
+
+çˆ¬PTT beautyæ¿(è¡¨ç‰¹æ¿) 3é  æ–‡ç« å…§å®¹ï¼Œç„¶å¾Œåªä¸‹è¼‰ æ¨æ–‡æ•¸>=10 çš„æ–‡ç« å…§å®¹åœ–ç‰‡
+
+### åŸ·è¡Œç•«é¢ - 1
+
+![alt tag](http://i.imgur.com/EclywBO.jpg)
+
+### è¼¸å‡ºç•«é¢ - 1
+
+![alt tag](http://i.imgur.com/CmcheN3.jpg)
+![alt tag](http://i.imgur.com/C1E30JX.jpg)
+
+ä¹Ÿå¯ä»¥æŒ‡å®šå…¶ä»–çœ‹æ¿ï¼Œå¦‚ä¸‹
+
+```cmd
+python beauty_spider2.py AKB48 -1 3 10
+```
+
+* ç¯„ä¾‹äºŒ(æŒ‡å®šç¶²å€æŠ“åœ–)
+
+```cmd
+python download_beauty.py input.txt
+```
+
+çˆ¬ input.txt æª”æ¡ˆå…§çš„PTTæ–‡ç« é€£çµåœ–ç‰‡ , input.txt æª”æ¡ˆ
+
+![alt tag](http://i.imgur.com/dtcfWUy.jpg)
+
+### åŸ·è¡Œç•«é¢ - 2
+
+![alt tag](http://i.imgur.com/fmu5c8v.jpg)
+
+### è¼¸å‡ºç•«é¢ - 2
+
+![alt tag](http://i.imgur.com/gtdPFCE.jpg)
+![alt tag](http://i.imgur.com/hw9a8j0.jpg)
+![alt tag](http://i.imgur.com/lPKRJnJ.jpg)
+
+## åŸ·è¡Œç’°å¢ƒ
+
+* Python 3.4.3
+
+## License
+
 MIT license

@@ -8,7 +8,7 @@ A crawler picture for web PTT
 
 ## 教學
 
-請先確認電腦有安裝 [Python 3.4.3](https://www.python.org/)
+請先確認電腦有安裝 [Python 3.6.2](https://www.python.org/)
 
 接著安裝套件
 
@@ -28,6 +28,28 @@ A crawler picture for web PTT
 ## 輸出格式
 
 * 資料夾為文章標題加上推文數，資料夾內為圖片
+
+## 效能優化
+
+在 python 中有 [Multiprocessing](https://docs.python.org/3.6/library/multiprocessing.html) 以及 [Threading](https://docs.python.org/3/library/threading.html)，兩個使用的時機用比較容易的區分分法為，
+
+當有高 CPU ( CPU-bound  ) 計算的工作時，我們使用 [Multiprocessing](https://docs.python.org/3.6/library/multiprocessing.html)
+
+當有大量 I/O ( I/O-bound  ) 的工作時，我們使用 [Threading](https://docs.python.org/3/library/threading.html)
+
+****使用 [concurrent.futures](https://docs.python.org/3/library/concurrent.futures.html#module-concurrent.futures) 優化效能 ****
+
+本範例來說，我們大量下載圖片，是使用 [Threading](https://docs.python.org/3/library/threading.html) 才對，不過我們之前使用 [Multiprocessing](https://docs.python.org/3.6/library/multiprocessing.html) 。
+
+當下載量大時，速度會差到兩倍 , 在這種 大量 I/O ( I/O-bound  ) 的情境下 ，使用 [Threading](https://docs.python.org/3/library/threading.html) 才是對的選擇。
+
+建議使用 python 3.5 以上，因為 max_workers 如果沒有特別指定，預設會使用 CPU*5 的 workers 數量，如下說明
+
+```pyhon
+concurrent.futures.ThreadPoolExecutor(max_workers=None, thread_name_prefix='')
+```
+
+參考連結 [https://docs.python.org/3/library/concurrent.futures.html#concurrent.futures.ThreadPoolExecutor](https://docs.python.org/3/library/concurrent.futures.html#concurrent.futures.ThreadPoolExecutor)
 
 ## 使用方法
 
@@ -100,7 +122,7 @@ python download_beauty.py input.txt
 
 ## 執行環境
 
-* Python 3.4.3
+* Python 3.6.2
 
 ## License
 

@@ -1,15 +1,17 @@
-import os
-import sys
-import requests
-from requests.packages.urllib3.exceptions import InsecureRequestWarning
-import shutil
-import multiprocessing
-import time
+import concurrent.futures
 import datetime
-from bs4 import BeautifulSoup
+import os
+import shutil
+import sys
+import time
 from functools import partial
 
-requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+import requests
+import urllib3
+from bs4 import BeautifulSoup
+
+urllib3.disable_warnings()
+
 rs = requests.session()
 
 
@@ -47,6 +49,21 @@ def image_url(link):
     return ''
 
 
+def download_link(directory, link):
+    res_img = rs.get(link, stream=True, verify=False)
+    # 使用網址的最後一個字串設為圖片檔案名稱
+    filename = link.split('/')[-1]
+    relative_path = os.path.join(directory, filename)
+    path = os.path.abspath(relative_path)
+    try:
+        if not os.path.exists(path):
+            with open(path, 'wb') as out_file:
+                shutil.copyfileobj(res_img.raw, out_file)
+            del res_img
+    except Exception as e:
+        print('shutil.copyfileobj error')
+
+
 def store_pic(crawler_time, url, rate='', title=''):
     # 檢查看板是否為18禁,有些看板為18禁
     soup, _ = over18(url)
@@ -76,27 +93,9 @@ def store_pic(crawler_time, url, rate='', title=''):
         except Exception as e:
             print('os.makedirs(path) error')
 
-        pool_size = multiprocessing.cpu_count() * 2
         download = partial(download_link, relative_path)
-        pool = multiprocessing.Pool(processes=pool_size, )
-        pool.map(download, pic_url_list)
-        pool.close()
-        pool.join()
-
-
-def download_link(directory, link):
-    res_img = rs.get(link, stream=True, verify=False)
-    # 使用網址的最後一個字串設為圖片檔案名稱
-    filename = link.split('/')[-1]
-    relative_path = os.path.join(directory, filename)
-    path = os.path.abspath(relative_path)
-    try:
-        if not os.path.exists(path):
-            with open(path, 'wb') as out_file:
-                shutil.copyfileobj(res_img.raw, out_file)
-            del res_img
-    except Exception as e:
-        print('shutil.copyfileobj error')
+        executor = concurrent.futures.ThreadPoolExecutor()
+        executor.map(download, pic_url_list)
 
 
 def main():

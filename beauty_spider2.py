@@ -3,12 +3,12 @@ import sys
 import time
 
 import requests
+import urllib3
 from bs4 import BeautifulSoup
-from requests.packages.urllib3.exceptions import InsecureRequestWarning
 
 import download_beauty
 
-requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+urllib3.disable_warnings()
 rs = requests.session()
 
 
@@ -68,7 +68,7 @@ def craw_page(res, push_rate):
 def main():
     # python beauty_spider2.py [版名] [爬蟲起始的頁面] [爬幾頁] [推文多少以上] python beauty_spider2.py beauty -1 3 10
     # board, start_page, page_term, push_rate = sys.argv[1], int(sys.argv[2]), int(sys.argv[3]), int(sys.argv[4])
-    board, start_page, page_term, push_rate = 'beauty', -1, 3, 10
+    board, start_page, page_term, push_rate = 'beauty', -1, 5, 10
     start_time = time.time()
     datetime_format = '%Y%m%d%H%M%S'
     crawler_time = '_PttImg_{:{}}'.format(datetime.datetime.now(), datetime_format)

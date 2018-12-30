@@ -8,7 +8,11 @@ A crawler picture for web PTT
 
 ## 教學
 
-請先確認電腦有安裝 [Python 3.6.2](https://www.python.org/)
+2018/12/18
+
+refactor oop，如要看舊版，請參考 [567482ba6e](https://github.com/twtrubiks/PTT_Beauty_Spider/tree/567482ba6e7f0f0d754e017a7d9bfe4aefa2e7b5)。
+
+請先確認電腦有安裝 [Python 3.6.6](https://www.python.org/)
 
 接著安裝套件
 
@@ -56,7 +60,7 @@ concurrent.futures.ThreadPoolExecutor(max_workers=None, thread_name_prefix='')
 * 方法一(指定看板抓圖)
 
 ```cmd
-python beauty_spider2.py [板名] [爬蟲起始的頁面] [爬幾頁] [推文多少以上]
+python beauty_spider2.py [板名] [爬幾頁] [推文多少以上]
 ```
 
 * 方法二(指定網址抓圖)
@@ -64,8 +68,6 @@ python beauty_spider2.py [板名] [爬蟲起始的頁面] [爬幾頁] [推文多
 ```cnd
 python download_beauty.py [輸入內容.txt]
 ```
-
-如果要從最新頁面開始爬 第一個參數請填 -1
 
 爬蟲是利用 PTT 網頁版，所以頁面以網頁版為標準。
 
@@ -80,10 +82,10 @@ https://www.ptt.cc/bbs/AKB48/index.html
 * 範例一(指定看板抓圖)
 
 ```cmd
-python beauty_spider2.py beauty -1 3 10
+python beauty_spider2.py beauty 3 10
 ```
 
-爬PTT beauty板(表特板) 3頁 文章內容，然後只下載 推文數>=10 的文章內容圖片
+爬 PTT beauty 板 ( 表特板 ) 3頁 文章內容，然後只下載 推文數 >= 10 的文章內容圖片
 
 ### 執行畫面 - 1
 
@@ -97,7 +99,7 @@ python beauty_spider2.py beauty -1 3 10
 也可以指定其他看板，如下
 
 ```cmd
-python beauty_spider2.py AKB48 -1 3 10
+python beauty_spider2.py AKB48 3 10
 ```
 
 * 範例二(指定網址抓圖)
@@ -122,7 +124,15 @@ python download_beauty.py input.txt
 
 ## 執行環境
 
-* Python 3.6.2
+* Python 3.6.6
+
+## Donation
+
+如果有幫助到您，也想鼓勵我的話，歡迎請我喝一杯咖啡:laughing:
+
+![alt tag](https://i.imgur.com/LRct9xa.png)
+
+[贊助者付款](https://payment.opay.tw/Broadcaster/Donate/9E47FDEF85ABE383A0F5FC6A218606F8)
 
 ## License
 

@@ -1,13 +1,15 @@
 import sys
-import time
 import concurrent.futures
 import requests
 import urllib3
 import os
+import logging
 import uuid
 from bs4 import BeautifulSoup
 
 urllib3.disable_warnings()
+logging.basicConfig(level=logging.WARNING)
+HTTP_ERROR_MSG = 'HTTP error {res.status_code} - {res.reason}'
 
 
 class PttSpider:
@@ -15,37 +17,37 @@ class PttSpider:
     ptt_head = 'https://www.ptt.cc'
     ptt_middle = 'bbs'
     parser_page_count = 5
+    push_rate = 10
 
     def __init__(self, **kwargs):
         self._board = kwargs.get('board', None)
         self.parser_page = int(kwargs.get('parser_page', self.parser_page_count))
-        self.push_rate = int(kwargs.get('push_rate', 10))
+        self.push_rate = int(kwargs.get('push_rate', self.push_rate))
 
         self._soup = None
-        self._index_seqs = []
+        self._index_seqs = None
         self._articles = []
-        self._data = []
 
     @property
     def info(self):
-        return self._data
+        return self._articles
 
     @property
     def board(self):
-        return self._board
+        return self._board.capitalize()
 
     def run(self):
         self._soup = self.check_board()
         self._index_seqs = self.parser_index()
         self._articles = self.parser_per_article_url()
-        self._data = self.analyze_articles()
+        self.analyze_articles()
         self.crawler_img_urls()
 
     def run_specific_article(self, article):
         self._board = article.url.split('/')[-2]
         self.check_board_over18()
         self._articles = [article]
-        self._data = self.analyze_articles()
+        self.analyze_articles()
         self.crawler_img_urls(True)
 
     def check_board(self):
@@ -57,63 +59,56 @@ class PttSpider:
             sys.exit()
 
     def check_board_over18(self):
-        res = self.rs.get('{}/{}/{}/index.html'.format(self.ptt_head, self.ptt_middle, self._board),
-                          verify=False)
-        # 先檢查網址是否包含'over18'字串 ,如有則為18禁網站
-        if 'over18' in res.url:
-            print("18禁網頁")
-            load = {
-                'from': '/{}/{}/index.html'.format(self.ptt_middle, self._board),
-                'yes': 'yes'
-            }
+        load = {
+            'from': '/{}/{}/index.html'.format(self.ptt_middle, self._board),
+            'yes': 'yes'
+        }
+        try:
             res = self.rs.post('{}/ask/over18'.format(self.ptt_head), verify=False, data=load)
+            res.raise_for_status()
+        except requests.exceptions.HTTPError as exc:
+            logging.warning(HTTP_ERROR_MSG.format(res=exc.response))
+            raise Exception('網頁有問題')
         return BeautifulSoup(res.text, 'html.parser')
 
     def parser_index(self):
         print('parser index......')
         max_page = self.get_max_page(self._soup.select('.btn.wide')[1]['href'])
-        return [
+        return (
             '{}/{}/{}/index{}.html'.format(self.ptt_head, self.ptt_middle, self._board, page)
             for page in range(max_page - self.parser_page + 1, max_page + 1, 1)
-        ]
+        )
 
     def parser_per_article_url(self):
         print('parser per article url......')
         articles = []
-        while self._index_seqs:
-            index = self._index_seqs.pop(0)
-            res = self.rs.get(index, verify=False)
-            # 如網頁忙線中,則先將網頁加入 _index_seqs 並休息1秒後再連接
-            if res.status_code != 200:
-                self._index_seqs.append(index)
-                time.sleep(1)
+        for page in self._index_seqs:
+            try:
+                res = self.rs.get(page, verify=False)
+                res.raise_for_status()
+            except requests.exceptions.HTTPError as exc:
+                logging.warning(HTTP_ERROR_MSG.format(res=exc.response))
+            except requests.exceptions.ConnectionError:
+                logging.error('Connection error')
             else:
-                article = self.crawler_info(res, self.push_rate)
-                if article:
-                    articles += article
-            time.sleep(0.05)
+                articles += self.crawler_info(res, self.push_rate)
         return articles
 
     def analyze_articles(self):
-        print('analyze articles......')
-        # 進入每篇文章分析內容
-        articles = []
-        while self._articles:
-            article = self._articles.pop(0)
-            res = self.rs.get('{}{}'.format(self.ptt_head, article.url), verify=False)
-            print('{}{} ing......'.format(self.ptt_head, article.url))
-            # 如網頁忙線中,則先將網頁加入 self._articles 並休息1秒後再連接
-            if res.status_code != 200:
-                self._articles.append(article)
-                time.sleep(1)
+        for article in self._articles:
+            try:
+                logging.debug('{}{} ing......'.format(self.ptt_head, article.url))
+                res = self.rs.get('{}{}'.format(self.ptt_head, article.url), verify=False)
+                res.raise_for_status()
+            except requests.exceptions.HTTPError as exc:
+                logging.warning(HTTP_ERROR_MSG.format(res=exc.response))
+            except requests.exceptions.ConnectionError:
+                logging.error('Connection error')
             else:
                 article.res = res
-                articles.append(article)
-            time.sleep(0.05)
-        return articles
 
     def crawler_img_urls(self, is_content_parser=False):
-        for data in self._data:
+        for data in self._articles:
             print('crawler image urls......')
             soup = BeautifulSoup(data.res.text, 'html.parser')
             title = str(uuid.uuid4())
@@ -122,31 +117,32 @@ class PttSpider:
                 try:
                     title = soup.select('.article-meta-value')[2].text
                 except Exception as e:
-                    print(e)
+                    logging.debug('自行刪除標題列:', e)
                 finally:
                     data.title = title
 
             # 抓取圖片URL(img tag )
             for img in soup.find_all("a", rel='nofollow'):
-                img_url = self.image_url(img['href'])
-                if img_url:
-                    data.img_urls.append(img_url)
+                data.img_urls += self.image_url(img['href'])
 
     @staticmethod
     def image_url(link):
+        # 不抓相簿 和 .gif
+        if ('imgur.com/a/' in link) or ('imgur.com/gallery/' in link) or ('.gif' in link):
+            return []
         # 符合圖片格式的網址
         images_format = ['.jpg', '.png', '.jpeg']
         for image in images_format:
             if link.endswith(image):
-                return link
+                return [link]
         # 有些網址會沒有檔案格式， "https://imgur.com/xxx"
-        if ('imgur' in link) and ('.gif' not in link):
-            return '{}.jpg'.format(link)
-        return ''
+        if 'imgur' in link:
+            return ['{}.jpg'.format(link)]
+        return []
 
     @staticmethod
     def crawler_info(res, push_rate):
-        print('crawler_info......{}'.format(res.url))
+        logging.debug('crawler_info......{}'.format(res.url))
         soup = BeautifulSoup(res.text, 'html.parser')
         articles = []
         for r_ent in soup.find_all(class_="r-ent"):
@@ -174,7 +170,8 @@ class PttSpider:
                     articles.append(ArticleInfo(
                         title=title, author=author, url=url, rate=rate))
             except Exception as e:
-                print('本文已被刪除', e)
+                logging.debug('本文已被刪除')
+                logging.debug(e)
         return articles
 
     @staticmethod
@@ -192,7 +189,6 @@ class ArticleInfo:
         self.url = kwargs.get('url', None)
         self.rate = kwargs.get('rate', None)
         self.img_urls = []
-        self.path = kwargs.get('path', None)
         self.res = None
 
     @staticmethod
@@ -208,9 +204,9 @@ class ArticleInfo:
             try:
                 if not os.path.exists(path):
                     os.makedirs(path)
-                    result += [(url, path) for url in data]
+                    result += [(img_url, path) for img_url in data]
             except Exception as e:
-                print(e)
+                logging.warning(e)
         return result
 
     @staticmethod
@@ -237,12 +233,20 @@ class Download:
 
     def download(self, image_info):
         url, path = image_info
-        print('download image......', url)
-        res_img = self.rs.get(url, stream=True, verify=False)
-        file_name = url.split('/')[-1]
-        file = os.path.join(path, file_name)
         try:
-            with open(file, 'wb') as out_file:
-                out_file.write(res_img.content)
-        except Exception as e:
-            print(e)
+            res_img = self.rs.get(url, stream=True, verify=False)
+            logging.debug('download image {} ......'.format(url))
+            res_img.raise_for_status()
+        except requests.exceptions.HTTPError as exc:
+            logging.warning(HTTP_ERROR_MSG.format(res=exc.response))
+            logging.warning(url)
+        except requests.exceptions.ConnectionError:
+            logging.error('Connection error')
+        else:
+            file_name = url.split('/')[-1]
+            file = os.path.join(path, file_name)
+            try:
+                with open(file, 'wb') as out_file:
+                    out_file.write(res_img.content)
+            except Exception as e:
+                logging.warning(e)

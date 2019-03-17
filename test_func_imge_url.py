@@ -7,7 +7,7 @@ class TestCase(unittest.TestCase):
     def test_01(self):
         input_data = 'https://i.imgur.com/oqxkFn0.jpg'
         result = ['https://i.imgur.com/oqxkFn0.jpg']
-        self.assertEqual(PttSpider.image_url(input_data), result)
+        self.asider.image_url(input_data), result)
 
     def test_02(self):
         input_data = 'https://i.imgur.com/oqxkFn0'
